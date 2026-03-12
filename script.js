@@ -1,6 +1,6 @@
  // 登录相关变量
         const validUsers = [
-            { username: 'lxh', password: 'lxh123' }
+            { username: 'lxh', password: 'lxh' },{ username: 'fgq', password: 'fgq' }
         ];
         
         // 全局变量
