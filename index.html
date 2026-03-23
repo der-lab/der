@@ -7,36 +7,53 @@
     <title>表格分析系统</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
-    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        
+        
+    </style>
 </head>
 <body>
-    <!-- 登录界面 -->
-    <div id="loginContainer" class="login-container">
-        <div class="login-form">
-            <h2><i class="fas fa-lock"></i> 系统登录</h2>
-            <div class="form-group">
-                <label for="username">用户名</label>
-                <input type="text" id="username" class="input-field" placeholder="请输入用户名">
+    <div class="container">
+        <!-- 登录界面 -->
+        <div id="loginContainer" style="display: block; padding: 50px;">
+            <div style="max-width: 400px; margin: 0 auto; text-align: center;">
+                <h2 style="margin-bottom: 30px; color: #2c3e50;"><i class="fas fa-lock"></i> 系统登录</h2>
+                <div style="background: #f8f9fa; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+                    <div style="margin-bottom: 20px; text-align: left;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">用户名</label>
+                        <input type="text" id="loginUsername" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="请输入用户名">
+                    </div>
+                    <div style="margin-bottom: 20px; text-align: left;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600;">密码</label>
+                        <input type="password" id="loginPassword" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" placeholder="请输入密码">
+                    </div>
+                    <button id="loginButton" style="width: 100%; padding: 12px; background: #3498db; color: white; border: none; border-radius: 4px; font-size: 16px; font-weight: 600; cursor: pointer;">
+                        登录
+                    </button>
+                    <div style="margin-top: 15px; font-size: 14px; color: #666;">
+                      
+                    </div>
+                    <div id="loginError" style="margin-top: 15px; color: #e74c3c; display: none;"></div>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="password">密码</label>
-                <input type="password" id="password" class="input-field" placeholder="请输入密码">
-            </div>
-            <div class="form-group">
-                <button id="loginBtn" class="login-btn">登录</button>
-            </div>
-            <div id="loginError" class="login-error"></div>
         </div>
-    </div>
-    
-    <div class="container" id="mainContainer" style="display: none;">
-        <header>
-            <h1><i class="fas fa-route"></i> 表格分析系统</h1>
-            <button class="refresh-btn" id="refreshBtn">
-                <i class="fas fa-redo"></i> 刷新
-            </button>
-            <p>上传Excel文件，分析并整合线路订单数据</p>
-        </header>
+        
+        <!-- 主系统界面 -->
+        <div id="mainContainer" style="display: none;">
+            <header>
+                <div class="server-status" id="serverStatus">
+                    <i class="fas fa-server"></i>
+                    <span>检查服务器状态...</span>
+                </div>
+                <h1><i class="fas fa-route"></i> 表格分析系统</h1>
+                <button class="refresh-btn" id="refreshBtn">
+                    <i class="fas fa-redo"></i> 刷新
+                </button>
+                <button class="refresh-btn" id="logoutBtn" style="right: 120px;">
+                    <i class="fas fa-sign-out-alt"></i> 登出
+                </button>
+                <p>上传Excel文件，分析并整合线路订单数据</p>
+            </header>
         
         <!-- 导航栏 -->
         <nav class="navbar">
@@ -73,17 +90,27 @@
                     <button class="process-btn analyze-btn" id="analyzeBtn">
                         <i class="fas fa-chart-bar"></i> 分析并整合数据
                     </button>
-                    <button class="process-btn toggle-btn" id="toggleBtn" disabled>
-                        <i class="fas fa-eye"></i> 显示整合后的数据
+                    <button class="process-btn toggle-btn" id="toggleBtn" disabled; display: none;>
+                        <i class="fas fa-eye"></i> 显示
                     </button>
                     <button class="process-btn export-btn" id="exportBtn" disabled>
                         <i class="fas fa-file-export"></i> 导出Excel文件
                     </button>
-                    <button class="process-btn" style="background-color: #f39c12; color: white;" id="saveDataBtn">
-                        <i class="fas fa-save"></i> 保存数据
+                    <button class="process-btn" style="background-color: #f39c12; color: white; display: none;" id="saveDataBtn">
+                        <i class="fas fa-save"></i> 保存数据(本地)
                     </button>
-                    <button class="process-btn" style="background-color: #9b59b6; color: white;" id="loadDataBtn">
-                        <i class="fas fa-database"></i> 加载数据
+                    <button class="process-btn" style="background-color: #9b59b6; color: white; display: none;" id="loadDataBtn">
+                        <i class="fas fa-database"></i> 加载数据(本地)
+                    </button>
+                </div>
+                
+                <!-- MySQL数据库操作按钮 -->
+                <div class="process-section">
+                    <button class="process-btn" style="background-color: #27ae60; color: white;" id="saveToMySQLBtn">
+                        <i class="fas fa-database"></i> 保存数据
+                    </button>
+                    <button class="process-btn" style="background-color: #2980b9; color: white;" id="loadFromMySQLBtn">
+                        <i class="fas fa-cloud-download-alt"></i> 加载数据
                     </button>
                 </div>
             </div>
@@ -297,6 +324,7 @@
         <footer>
             <p></p>
         </footer>
+        </div>
     </div>
 
     <!-- 线路信息填写弹窗（新增线路限制列） -->
@@ -304,7 +332,13 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h3><i class="fas fa-edit"></i> 为各线路填写车辆信息</h3>
-                <button class="close-btn" id="closeModalBtn">&times;</button>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <label for="importVehicleFile" class="modal-btn" style="background: #27ae60; margin: 0; padding: 8px 15px; font-size: 0.9rem; display: none;">
+                        <i class="fas fa-file-import"></i> 导入表格
+                    </label>
+                    <input type="file" id="importVehicleFile" accept=".xlsx,.xls" style="display: none;">
+                    <button class="close-btn" id="closeModalBtn">&times;</button>
+                </div>
             </div>
             <div class="modal-body">
                 <div class="modal-instructions">
@@ -615,7 +649,29 @@
         </div>
     </div>
 
-    <script src="script.js"></script>
+    <!-- 选择日期加载对话框 -->
+    <div class="confirm-dialog-overlay" id="selectDateDialogOverlay">
+        <div class="confirm-dialog">
+            <div class="confirm-dialog-header">
+                <h3><i class="fas fa-calendar-alt"></i> 选择乘车日期</h3>
+                <button class="close-btn" id="closeSelectDateDialogBtn">&times;</button>
+            </div>
+            <div class="confirm-dialog-body">
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <p style="margin-bottom: 15px;">请选择要加载的乘车日期：</p>
+                    <input type="date" id="customDateInput" style="width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #ddd; border-radius: 6px;">
+                </div>
+            </div>
+            <div class="confirm-dialog-footer">
+                <button class="confirm-dialog-btn confirm-dialog-cancel-btn" id="selectDateDialogCancelBtn">取消</button>
+                <button class="confirm-dialog-btn confirm-dialog-ok-btn" id="selectDateDialogOkBtn" disabled>确定加载</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        
+    </script>
     
     <!-- 编辑车辆对话框 -->
     <div class="modal-overlay" id="editVehicleModalOverlay">
@@ -635,5 +691,7 @@
             </div>
         </div>
     </div>
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
