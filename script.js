@@ -1,11 +1,4 @@
- // 登录相关变量
-        const validUsers = [
-            { username: 'fgq', password: 'fgq' },
-         { username: 'lxh', password: 'lxh' },
-         { username: 'yxx', password: 'yxx' }
-        ];
-        
-        // 全局变量
+// 全局变量
         let originalData = [];
         let processedData = [];
         let filteredData = [];
@@ -31,44 +24,87 @@
         let manuallyAddedOrders = new Set(); // 手动添加的订单
         let manuallyDeletedOrders = new Set(); // 手动删除的订单
         
-        // 登录验证函数
-        function validateLogin(username, password) {
-            return validUsers.find(user => user.username === username && user.password === password);
+        // 检查登录状态
+        function checkLogin() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                document.getElementById('loginContainer').style.display = 'block';
+                document.getElementById('mainContainer').style.display = 'none';
+                return false;
+            }
+            document.getElementById('loginContainer').style.display = 'none';
+            document.getElementById('mainContainer').style.display = 'block';
+            return true;
         }
         
-        // 登录处理函数
-        function handleLogin() {
-            const username = document.getElementById('username').value.trim();
-            const password = document.getElementById('password').value;
-            const loginError = document.getElementById('loginError');
+        // 获取认证令牌
+        function getToken() {
+            return localStorage.getItem('token') || '';
+        }
+        
+        // 登出功能
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            checkLogin();
+        }
+        
+        // 登录功能
+        async function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorDiv = document.getElementById('loginError');
             
             if (!username || !password) {
-                loginError.textContent = '请输入用户名和密码';
+                errorDiv.textContent = '请输入用户名和密码';
+                errorDiv.style.display = 'block';
                 return;
             }
             
-            const user = validateLogin(username, password);
-            if (user) {
-                // 登录成功，存储用户信息使用sessionStorage，关闭浏览器后会自动清除
-                const userToStore = { username: user.username };
-                sessionStorage.setItem('loggedInUser', JSON.stringify(userToStore));
-                loginError.textContent = '';
-                
-                // 隐藏登录界面，显示主系统
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'block';
-            } else {
-                loginError.textContent = '用户名或密码错误';
+            try {
+                // 简化的登录验证
+                if (username === 'admin' && password === 'admin123') {
+                    // 存储令牌
+                    localStorage.setItem('token', 'admin-token');
+                    localStorage.setItem('user', JSON.stringify({ username: 'admin' }));
+                    checkLogin();
+                    errorDiv.style.display = 'none';
+                } else {
+                    errorDiv.textContent = '用户名或密码错误';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('登录失败:', error);
+                errorDiv.textContent = '登录失败，请重试';
+                errorDiv.style.display = 'block';
             }
         }
         
-        // 检查用户是否已登录
-        function checkLoginStatus() {
-            const loggedInUser = sessionStorage.getItem('loggedInUser');
-            if (loggedInUser) {
-                // 用户已登录，显示主系统
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('mainContainer').style.display = 'block';
+        // 检查服务器状态
+        async function checkServerStatus() {
+            try {
+                const response = await fetch('http://localhost:3000', {
+                    method: 'HEAD',
+                    timeout: 2000
+                });
+                
+                const serverStatus = document.getElementById('serverStatus');
+                if (response.ok) {
+                    serverStatus.className = 'server-status online';
+                    serverStatus.innerHTML = '<i class="fas fa-server"></i><span>服务器在线</span>';
+                    return true;
+                } else {
+                    serverStatus.className = 'server-status offline';
+                    serverStatus.innerHTML = '<i class="fas fa-server"></i><span>服务器离线</span>';
+                    showNotification('服务器未运行，请启动服务器', 'error');
+                    return false;
+                }
+            } catch (error) {
+                const serverStatus = document.getElementById('serverStatus');
+                serverStatus.className = 'server-status offline';
+                serverStatus.innerHTML = '<i class="fas fa-server"></i><span>服务器离线</span>';
+                showNotification('服务器未运行，请启动服务器', 'error');
+                return false;
             }
         }
         
@@ -91,19 +127,19 @@
         // 新增：导出排序方式
         let exportSortType = 'line'; // 默认按线路排序
         
-        // 新增：数据库相关
-        let db = null;
-        const DB_NAME = 'TableAnalysisSystemDB';
-        const DB_VERSION = 2;
-        const STORES = {
-            ORIGINAL_DATA: 'originalData',
-            PROCESSED_DATA: 'processedData',
-            LINE_INFO: 'lineInfo',
-            LAST_LINE_INFO: 'lastLineInfo',
-            MANUALLY_MODIFIED: 'manuallyModified',
-            MANUALLY_ADDED: 'manuallyAdded',
-            MANUALLY_DELETED: 'manuallyDeleted'
-        };
+        // 新增：数据库相关（已禁用，仅保留代码以便后续需要时恢复
+        // let db = null;
+        // const DB_NAME = 'TableAnalysisSystemDB';
+        // const DB_VERSION = 2;
+        // const STORES = {
+        //     ORIGINAL_DATA: 'originalData',
+        //     PROCESSED_DATA: 'processedData',
+        //     LINE_INFO: 'lineInfo',
+        //     LAST_LINE_INFO: 'lastLineInfo',
+        //     MANUALLY_MODIFIED: 'manuallyModified',
+        //     MANUALLY_ADDED: 'manuallyAdded',
+        //     MANUALLY_DELETED: 'manuallyDeleted'
+        // };
         
         // 预定义的颜色集合
         const colorPalette = [
@@ -115,313 +151,577 @@
             "#FFF5EE", "#F5FFFA", "#FFFAFA", "#F0F8FF", "#F8F8FF"
         ];
         
-        // 数据库初始化函数
-        function initDatabase() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                
-                request.onerror = function(event) {
-                    console.error('数据库打开失败:', event.target.error);
-                    reject(event.target.error);
-                };
-                
-                request.onsuccess = function(event) {
-                    db = event.target.result;
-                    console.log('数据库连接成功');
-                    resolve(db);
-                };
-                
-                request.onupgradeneeded = function(event) {
-                    db = event.target.result;
-                    console.log('数据库版本升级，当前版本:', event.oldVersion, '目标版本:', event.newVersion);
-                    
-                    // 创建存储对象
-                    if (!db.objectStoreNames.contains(STORES.ORIGINAL_DATA)) {
-                        db.createObjectStore(STORES.ORIGINAL_DATA);
-                        console.log('创建存储对象:', STORES.ORIGINAL_DATA);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.PROCESSED_DATA)) {
-                        db.createObjectStore(STORES.PROCESSED_DATA);
-                        console.log('创建存储对象:', STORES.PROCESSED_DATA);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.LINE_INFO)) {
-                        db.createObjectStore(STORES.LINE_INFO);
-                        console.log('创建存储对象:', STORES.LINE_INFO);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.LAST_LINE_INFO)) {
-                        db.createObjectStore(STORES.LAST_LINE_INFO);
-                        console.log('创建存储对象:', STORES.LAST_LINE_INFO);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.MANUALLY_MODIFIED)) {
-                        db.createObjectStore(STORES.MANUALLY_MODIFIED);
-                        console.log('创建存储对象:', STORES.MANUALLY_MODIFIED);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.MANUALLY_ADDED)) {
-                        db.createObjectStore(STORES.MANUALLY_ADDED);
-                        console.log('创建存储对象:', STORES.MANUALLY_ADDED);
-                    }
-                    
-                    if (!db.objectStoreNames.contains(STORES.MANUALLY_DELETED)) {
-                        db.createObjectStore(STORES.MANUALLY_DELETED);
-                        console.log('创建存储对象:', STORES.MANUALLY_DELETED);
-                    }
-                    
-                    // 添加vehicleCapacityMap存储
-                    if (!db.objectStoreNames.contains('vehicleCapacityMap')) {
-                        db.createObjectStore('vehicleCapacityMap');
-                        console.log('创建存储对象: vehicleCapacityMap');
-                    }
-                };
-            });
+        // 页面加载完成后检查登录状态和服务器状态
+        document.addEventListener('DOMContentLoaded', async function() {
+            // 检查登录状态
+            checkLogin();
+            
+            // 检查服务器状态
+            await checkServerStatus();
+            // 每30秒检查一次服务器状态
+            setInterval(checkServerStatus, 30000);
+            
+            // 登录按钮事件监听器
+            const loginButton = document.getElementById('loginButton');
+            if (loginButton) {
+                loginButton.addEventListener('click', login);
+            }
+            
+            // 登出按钮事件监听器
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', logout);
+            }
+            
+            // 初始化导航栏
+            initNavbar();
+        });
+        
+        // 数据库初始化函数（已禁用）
+        // function initDatabase() {
+        //     return new Promise((resolve, reject) => {
+        //         const request = indexedDB.open(DB_NAME, DB_VERSION);
+        //         
+        //         request.onerror = function(event) {
+        //             console.error('数据库打开失败:', event.target.error);
+        //             reject(event.target.error);
+        //         };
+        //         
+        //         request.onsuccess = function(event) {
+        //             db = event.target.result;
+        //             console.log('数据库连接成功');
+        //             resolve(db);
+        //         };
+        //         
+        //         request.onupgradeneeded = function(event) {
+        //             db = event.target.result;
+        //             console.log('数据库版本升级，当前版本:', event.oldVersion, '目标版本:', event.newVersion);
+        //             
+        //             // 创建存储对象
+        //             if (!db.objectStoreNames.contains(STORES.ORIGINAL_DATA)) {
+        //                 db.createObjectStore(STORES.ORIGINAL_DATA);
+        //                 console.log('创建存储对象:', STORES.ORIGINAL_DATA);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.PROCESSED_DATA)) {
+        //                 db.createObjectStore(STORES.PROCESSED_DATA);
+        //                 console.log('创建存储对象:', STORES.PROCESSED_DATA);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.LINE_INFO)) {
+        //                 db.createObjectStore(STORES.LINE_INFO);
+        //                 console.log('创建存储对象:', STORES.LINE_INFO);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.LAST_LINE_INFO)) {
+        //                 db.createObjectStore(STORES.LAST_LINE_INFO);
+        //                 console.log('创建存储对象:', STORES.LAST_LINE_INFO);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.MANUALLY_MODIFIED)) {
+        //                 db.createObjectStore(STORES.MANUALLY_MODIFIED);
+        //                 console.log('创建存储对象:', STORES.MANUALLY_MODIFIED);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.MANUALLY_ADDED)) {
+        //                 db.createObjectStore(STORES.MANUALLY_ADDED);
+        //                 console.log('创建存储对象:', STORES.MANUALLY_ADDED);
+        //             }
+        //             
+        //             if (!db.objectStoreNames.contains(STORES.MANUALLY_DELETED)) {
+        //                 db.createObjectStore(STORES.MANUALLY_DELETED);
+        //                 console.log('创建存储对象:', STORES.MANUALLY_DELETED);
+        //             }
+        //             
+        //             // 添加vehicleCapacityMap存储
+        //             if (!db.objectStoreNames.contains('vehicleCapacityMap')) {
+        //                 db.createObjectStore('vehicleCapacityMap');
+        //                 console.log('创建存储对象: vehicleCapacityMap');
+        //             }
+        //         };
+        //     });
+        // }
+        // 
+        // // 保存数据到数据库（已禁用）
+        // function saveDataToDB(storeName, key, value) {
+        //     return new Promise((resolve, reject) => {
+        //         if (!db) {
+        //             reject(new Error('数据库未初始化'));
+        //             return;
+        //         }
+        //         
+        //         const transaction = db.transaction([storeName], 'readwrite');
+        //         const store = transaction.objectStore(storeName);
+        //         const request = store.put(value, key);
+        //         
+        //         request.onsuccess = function() {
+        //             console.log(`数据已保存到 ${storeName} 存储`);
+        //             resolve();
+        //         };
+        //         
+        //         request.onerror = function(event) {
+        //             console.error(`保存数据到 ${storeName} 失败:`, event.target.error);
+        //             reject(event.target.error);
+        //         };
+        //     });
+        // }
+        // 
+        // // 从数据库加载数据（已禁用）
+        // function loadDataFromDB(storeName, key) {
+        //     return new Promise((resolve, reject) => {
+        //         if (!db) {
+        //             reject(new Error('数据库未初始化'));
+        //             return;
+        //         }
+        //         
+        //         const transaction = db.transaction([storeName], 'readonly');
+        //         const store = transaction.objectStore(storeName);
+        //         const request = store.get(key);
+        //         
+        //         request.onsuccess = function() {
+        //             resolve(request.result);
+        //         };
+        //         
+        //         request.onerror = function(event) {
+        //             console.error(`从 ${storeName} 加载数据失败:`, event.target.error);
+        //             reject(event.target.error);
+        //         };
+        //     });
+        // }
+        // 
+        // // 清空数据库（已禁用）
+        // function clearDB() {
+        //     return new Promise((resolve, reject) => {
+        //         if (!db) {
+        //             reject(new Error('数据库未初始化'));
+        //             return;
+        //         }
+        //         
+        //         const storeNames = Object.values(STORES);
+        //         const transaction = db.transaction(storeNames, 'readwrite');
+        //         
+        //         let completed = 0;
+        //         let error = null;
+        //         
+        //         storeNames.forEach(storeName => {
+        //             const store = transaction.objectStore(storeName);
+        //             const request = store.clear();
+        //             
+        //             request.onsuccess = function() {
+        //                 completed++;
+        //                 if (completed === storeNames.length) {
+        //                     if (error) {
+        //                         reject(error);
+        //                     } else {
+        //                         resolve();
+        //                     }
+        //                 }
+        //             };
+        //             
+        //             request.onerror = function(event) {
+        //                 error = event.target.error;
+        //                 completed++;
+        //                 if (completed === storeNames.length) {
+        //                     reject(error);
+        //                 }
+        //             };
+        //         });
+        //     });
+        // }
+        // 
+        // // 保存所有数据到数据库（已禁用）
+        // async function saveAllData() {
+        //     try {
+        //         await saveDataToDB(STORES.ORIGINAL_DATA, 'data', originalData);
+        //         await saveDataToDB(STORES.PROCESSED_DATA, 'data', processedData);
+        //         await saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
+        //         await saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
+        //         await saveDataToDB(STORES.MANUALLY_MODIFIED, 'data', Object.fromEntries(manuallyModifiedOrders));
+        //         await saveDataToDB(STORES.MANUALLY_ADDED, 'data', Array.from(manuallyAddedOrders));
+        //         await saveDataToDB(STORES.MANUALLY_DELETED, 'data', Array.from(manuallyDeletedOrders));
+        //         try {
+        //             await saveDataToDB('vehicleCapacityMap', 'data', Object.fromEntries(vehicleCapacityMap));
+        //         } catch (error) {
+        //             console.error('保存vehicleCapacityMap失败:', error);
+        //             // 继续执行其他保存操作
+        //         }
+        //         
+        //         showNotification('数据已保存到数据库', 'success');
+        //     } catch (error) {
+        //         console.error('保存数据失败:', error);
+        //         showNotification('保存数据失败', 'error');
+        //     }
+        // }
+        
+        // 从数据库加载所有数据（已禁用）
+        // async function loadAllData() {
+        //     try {
+        //         // 逐个加载数据，确保即使某些数据加载失败，其他数据仍然能够被加载
+        //         let original = null;
+        //         let processed = null;
+        //         let line = null;
+        //         let lastLine = null;
+        //         let modified = null;
+        //         let added = null;
+        //         let deleted = null;
+        //         let vehicleCapacity = null;
+        //         
+        //         try {
+        //             original = await loadDataFromDB(STORES.ORIGINAL_DATA, 'data');
+        //         } catch (error) {
+        //             console.error('加载originalData失败:', error);
+        //         }
+        //         
+        //         try {
+        //             processed = await loadDataFromDB(STORES.PROCESSED_DATA, 'data');
+        //         } catch (error) {
+        //             console.error('加载processedData失败:', error);
+        //         }
+        //         
+        //         try {
+        //             line = await loadDataFromDB(STORES.LINE_INFO, 'data');
+        //         } catch (error) {
+        //             console.error('加载lineInfo失败:', error);
+        //         }
+        //         
+        //         try {
+        //             lastLine = await loadDataFromDB(STORES.LAST_LINE_INFO, 'data');
+        //         } catch (error) {
+        //             console.error('加载lastLineInfo失败:', error);
+        //         }
+        //         
+        //         try {
+        //             modified = await loadDataFromDB(STORES.MANUALLY_MODIFIED, 'data');
+        //         } catch (error) {
+        //             console.error('加载manuallyModifiedOrders失败:', error);
+        //         }
+        //         
+        //         try {
+        //             added = await loadDataFromDB(STORES.MANUALLY_ADDED, 'data');
+        //         } catch (error) {
+        //             console.error('加载manuallyAddedOrders失败:', error);
+        //         }
+        //         
+        //         try {
+        //             deleted = await loadDataFromDB(STORES.MANUALLY_DELETED, 'data');
+        //         } catch (error) {
+        //             console.error('加载manuallyDeletedOrders失败:', error);
+        //         }
+        //         
+        //         try {
+        //             vehicleCapacity = await loadDataFromDB('vehicleCapacityMap', 'data');
+        //         } catch (error) {
+        //             console.error('加载vehicleCapacityMap失败:', error);
+        //         }
+        //         
+        //         // 加载所有数据，包括originalData
+        //         // 这样当用户再次点击确定并分析数据时，系统会从数据库中保存的最后更新的数据分析
+        //         if (original) originalData = original;
+        //         if (processed) processedData = processed;
+        //         if (line) lineInfo = line;
+        //         if (lastLine) lastLineInfo = lastLine;
+        //         if (modified) {
+        //             try {
+        //                 manuallyModifiedOrders = new Map(Object.entries(modified));
+        //             } catch (error) {
+        //                 console.error('解析manuallyModifiedOrders失败:', error);
+        //                 manuallyModifiedOrders = new Map();
+        //             }
+        //         }
+        //         if (added) {
+        //             try {
+        //                 manuallyAddedOrders = new Set(added);
+        //             } catch (error) {
+        //                 console.error('解析manuallyAddedOrders失败:', error);
+        //                 manuallyAddedOrders = new Set();
+        //             }
+        //         }
+        //         if (deleted) {
+        //             try {
+        //                 manuallyDeletedOrders = new Set(deleted);
+        //             } catch (error) {
+        //                 console.error('解析manuallyDeletedOrders失败:', error);
+        //                 manuallyDeletedOrders = new Set();
+        //             }
+        //         }
+        //         if (vehicleCapacity) {
+        //             try {
+        //                 vehicleCapacityMap = new Map(Object.entries(vehicleCapacity));
+        //             } catch (error) {
+        //                 console.error('解析vehicleCapacityMap失败:', error);
+        //                 vehicleCapacityMap = new Map();
+        //             }
+        //         }
+        //                 
+        //         // 重新计算相关数据结构
+        //         updatePlateLineMap();
+        //         updateVehicleTotalAssigned();
+        //                 
+        //         // 更新界面状态
+        //         if (originalData.length > 0) {
+        //             analyzeBtn.disabled = false;
+        //         }
+        //                 
+        //         if (processedData.length > 0) {
+        //             toggleBtn.disabled = false;
+        //             exportBtn.disabled = false;
+        //             ticketStatsSection.style.display = 'block';
+        //             displayLineTicketStats();
+        //             displayLineTimeLocationStats();
+        //                     
+        //             // 直接显示整合后的数据和车次统计
+        //             dataSection.style.display = 'flex';
+        //             vehiclePickupStatsPanel.style.display = 'block';
+        //             displayProcessedData();
+        //             displayVehiclePickupStatsPanel();
+        //             ticketStatsSection.classList.add('ticket-stats-down');
+        //                     
+        //             // 隐藏切换按钮，但保留其功能
+        //             toggleBtn.style.display = 'none';
+        //         }
+        //                 
+        //         showNotification('数据已成功从数据库加载', 'success');
+        //     } catch (error) {
+        //         console.error('加载数据失败:', error);
+        //         showNotification('加载数据失败', 'error');
+        //     }
+        // }
+        
+        let autoSaveTimer = null;
+        
+        // 自动保存到MySQL（防抖，避免频繁保存）
+        function autoSaveToMySQL() {
+            if (autoSaveTimer) {
+                clearTimeout(autoSaveTimer);
+            }
+            autoSaveTimer = setTimeout(() => {
+                saveToMySQLSilent();
+            }, 2000);
         }
         
-        // 保存数据到数据库
-        function saveDataToDB(storeName, key, value) {
-            return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject(new Error('数据库未初始化'));
-                    return;
-                }
-                
-                const transaction = db.transaction([storeName], 'readwrite');
-                const store = transaction.objectStore(storeName);
-                const request = store.put(value, key);
-                
-                request.onsuccess = function() {
-                    console.log(`数据已保存到 ${storeName} 存储`);
-                    resolve();
-                };
-                
-                request.onerror = function(event) {
-                    console.error(`保存数据到 ${storeName} 失败:`, event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        }
-        
-        // 从数据库加载数据
-        function loadDataFromDB(storeName, key) {
-            return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject(new Error('数据库未初始化'));
-                    return;
-                }
-                
-                const transaction = db.transaction([storeName], 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.get(key);
-                
-                request.onsuccess = function() {
-                    resolve(request.result);
-                };
-                
-                request.onerror = function(event) {
-                    console.error(`从 ${storeName} 加载数据失败:`, event.target.error);
-                    reject(event.target.error);
-                };
-            });
-        }
-        
-        // 清空数据库
-        function clearDB() {
-            return new Promise((resolve, reject) => {
-                if (!db) {
-                    reject(new Error('数据库未初始化'));
-                    return;
-                }
-                
-                const storeNames = Object.values(STORES);
-                const transaction = db.transaction(storeNames, 'readwrite');
-                
-                let completed = 0;
-                let error = null;
-                
-                storeNames.forEach(storeName => {
-                    const store = transaction.objectStore(storeName);
-                    const request = store.clear();
-                    
-                    request.onsuccess = function() {
-                        completed++;
-                        if (completed === storeNames.length) {
-                            if (error) {
-                                reject(error);
-                            } else {
-                                resolve();
-                            }
-                        }
-                    };
-                    
-                    request.onerror = function(event) {
-                        error = event.target.error;
-                        completed++;
-                        if (completed === storeNames.length) {
-                            reject(error);
-                        }
-                    };
-                });
-            });
-        }
-        
-        // 保存所有数据到数据库
-        async function saveAllData() {
+        // 自动保存到MySQL
+        async function saveToMySQLSilent() {
             try {
-                await saveDataToDB(STORES.ORIGINAL_DATA, 'data', originalData);
-                await saveDataToDB(STORES.PROCESSED_DATA, 'data', processedData);
-                await saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
-                await saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
-                await saveDataToDB(STORES.MANUALLY_MODIFIED, 'data', Object.fromEntries(manuallyModifiedOrders));
-                await saveDataToDB(STORES.MANUALLY_ADDED, 'data', Array.from(manuallyAddedOrders));
-                await saveDataToDB(STORES.MANUALLY_DELETED, 'data', Array.from(manuallyDeletedOrders));
-                try {
-                    await saveDataToDB('vehicleCapacityMap', 'data', Object.fromEntries(vehicleCapacityMap));
-                } catch (error) {
-                    console.error('保存vehicleCapacityMap失败:', error);
-                    // 继续执行其他保存操作
+                if (!processedData || processedData.length === 0) {
+                    return;
                 }
                 
-                showNotification('数据已保存到数据库', 'success');
+                // 保存订单数据
+                const orderResponse = await fetch('http://localhost:3000/api/save-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify(processedData)
+                });
+                
+                const orderResult = await orderResponse.json();
+                
+                // 保存车辆信息
+                const vehicles = [];
+                vehicleCapacityMap.forEach((info, plate) => {
+                    vehicles.push({
+                        车牌号码: plate,
+                        容量: info.容量,
+                        顺序: info.顺序,
+                        随车负责人: info.随车负责人,
+                        随车负责人电话: info.随车负责人电话,
+                        通知内容: info.通知内容
+                    });
+                });
+                
+                if (vehicles.length > 0) {
+                    await fetch('http://localhost:3000/api/save-vehicles', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify(vehicles)
+                    });
+                }
+                
+                if (orderResult.success) {
+                    console.log('自动保存成功:', orderResult.message);
+                    showNotification('已保存到数据库', 'success');
+                } else {
+                    console.error('自动保存失败:', orderResult.message);
+                    showNotification('保存到数据库失败: ' + orderResult.message, 'error');
+                }
             } catch (error) {
-                console.error('保存数据失败:', error);
-                showNotification('保存数据失败', 'error');
+                console.error('自动保存到MySQL失败:', error);
+                showNotification('保存到数据库失败，请确保后端服务器正在运行', 'error');
             }
         }
         
-        // 从数据库加载所有数据
-        async function loadAllData() {
+        // 保存数据到MySQL
+        async function saveToMySQL() {
             try {
-                // 逐个加载数据，确保即使某些数据加载失败，其他数据仍然能够被加载
-                let original = null;
-                let processed = null;
-                let line = null;
-                let lastLine = null;
-                let modified = null;
-                let added = null;
-                let deleted = null;
-                let vehicleCapacity = null;
-                
-                try {
-                    original = await loadDataFromDB(STORES.ORIGINAL_DATA, 'data');
-                } catch (error) {
-                    console.error('加载originalData失败:', error);
+                if (!processedData || processedData.length === 0) {
+                    showNotification('没有数据可保存', 'error');
+                    return;
                 }
                 
-                try {
-                    processed = await loadDataFromDB(STORES.PROCESSED_DATA, 'data');
-                } catch (error) {
-                    console.error('加载processedData失败:', error);
+                // 保存订单数据
+                const orderResponse = await fetch('http://localhost:3000/api/save-orders', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                    },
+                    body: JSON.stringify(processedData)
+                });
+                
+                const orderResult = await orderResponse.json();
+                
+                // 保存车辆信息
+                const vehicles = [];
+                vehicleCapacityMap.forEach((info, plate) => {
+                    vehicles.push({
+                        车牌号码: plate,
+                        容量: info.容量,
+                        顺序: info.顺序,
+                        随车负责人: info.随车负责人,
+                        随车负责人电话: info.随车负责人电话,
+                        通知内容: info.通知内容
+                    });
+                });
+                
+                if (vehicles.length > 0) {
+                    await fetch('http://localhost:3000/api/save-vehicles', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${getToken()}`
+                        },
+                        body: JSON.stringify(vehicles)
+                    });
                 }
                 
-                try {
-                    line = await loadDataFromDB(STORES.LINE_INFO, 'data');
-                } catch (error) {
-                    console.error('加载lineInfo失败:', error);
+                if (orderResult.success) {
+                    showNotification(orderResult.message, 'success');
+                } else {
+                    showNotification(orderResult.message, 'error');
                 }
-                
-                try {
-                    lastLine = await loadDataFromDB(STORES.LAST_LINE_INFO, 'data');
-                } catch (error) {
-                    console.error('加载lastLineInfo失败:', error);
-                }
-                
-                try {
-                    modified = await loadDataFromDB(STORES.MANUALLY_MODIFIED, 'data');
-                } catch (error) {
-                    console.error('加载manuallyModifiedOrders失败:', error);
-                }
-                
-                try {
-                    added = await loadDataFromDB(STORES.MANUALLY_ADDED, 'data');
-                } catch (error) {
-                    console.error('加载manuallyAddedOrders失败:', error);
-                }
-                
-                try {
-                    deleted = await loadDataFromDB(STORES.MANUALLY_DELETED, 'data');
-                } catch (error) {
-                    console.error('加载manuallyDeletedOrders失败:', error);
-                }
-                
-                try {
-                    vehicleCapacity = await loadDataFromDB('vehicleCapacityMap', 'data');
-                } catch (error) {
-                    console.error('加载vehicleCapacityMap失败:', error);
-                }
-                
-                // 加载所有数据，包括originalData
-                // 这样当用户再次点击确定并分析数据时，系统会从数据库中保存的最后更新的数据分析
-                if (original) originalData = original;
-                if (processed) processedData = processed;
-                if (line) lineInfo = line;
-                if (lastLine) lastLineInfo = lastLine;
-                if (modified) {
-                    try {
-                        manuallyModifiedOrders = new Map(Object.entries(modified));
-                    } catch (error) {
-                        console.error('解析manuallyModifiedOrders失败:', error);
-                        manuallyModifiedOrders = new Map();
-                    }
-                }
-                if (added) {
-                    try {
-                        manuallyAddedOrders = new Set(added);
-                    } catch (error) {
-                        console.error('解析manuallyAddedOrders失败:', error);
-                        manuallyAddedOrders = new Set();
-                    }
-                }
-                if (deleted) {
-                    try {
-                        manuallyDeletedOrders = new Set(deleted);
-                    } catch (error) {
-                        console.error('解析manuallyDeletedOrders失败:', error);
-                        manuallyDeletedOrders = new Set();
-                    }
-                }
-                if (vehicleCapacity) {
-                    try {
-                        vehicleCapacityMap = new Map(Object.entries(vehicleCapacity));
-                    } catch (error) {
-                        console.error('解析vehicleCapacityMap失败:', error);
-                        vehicleCapacityMap = new Map();
-                    }
-                }
-                
-                // 重新计算相关数据结构
-                updatePlateLineMap();
-                updateVehicleTotalAssigned();
-                
-                // 更新界面状态
-                if (originalData.length > 0) {
-                    analyzeBtn.disabled = false;
-                }
-                
-                if (processedData.length > 0) {
-                    toggleBtn.disabled = false;
-                    exportBtn.disabled = false;
-                    ticketStatsSection.style.display = 'block';
-                    displayLineTicketStats();
-                    displayLineTimeLocationStats();
-                    
-                    // 直接显示整合后的数据和车次统计
-                    dataSection.style.display = 'flex';
-                    vehiclePickupStatsPanel.style.display = 'block';
-                    displayProcessedData();
-                    displayVehiclePickupStatsPanel();
-                    ticketStatsSection.classList.add('ticket-stats-down');
-                    
-                    // 隐藏切换按钮，但保留其功能
-                    toggleBtn.style.display = 'none';
-                }
-                
-                showNotification('数据已成功从数据库加载', 'success');
             } catch (error) {
-                console.error('加载数据失败:', error);
-                showNotification('加载数据失败', 'error');
+                console.error('保存到MySQL失败:', error);
+                showNotification('保存到MySQL失败，请确保后端服务器正在运行', 'error');
+            }
+        }
+        
+        // 从MySQL加载数据
+        async function loadFromMySQL() {
+            try {
+                const dateSelectDialogOverlay = document.getElementById('selectDateDialogOverlay');
+                const customDateInput = document.getElementById('customDateInput');
+                const selectDateDialogOkBtn = document.getElementById('selectDateDialogOkBtn');
+                const selectDateDialogCancelBtn = document.getElementById('selectDateDialogCancelBtn');
+                const closeSelectDateDialogBtn = document.getElementById('closeSelectDateDialogBtn');
+                
+                customDateInput.value = '';
+                selectDateDialogOkBtn.disabled = true;
+                
+                dateSelectDialogOverlay.style.display = 'flex';
+                
+                customDateInput.onchange = function() {
+                    selectDateDialogOkBtn.disabled = !customDateInput.value;
+                };
+                
+                const closeDialog = () => {
+                    dateSelectDialogOverlay.style.display = 'none';
+                    selectDateDialogOkBtn.onclick = null;
+                    selectDateDialogCancelBtn.onclick = null;
+                    closeSelectDateDialogBtn.onclick = null;
+                    customDateInput.onchange = null;
+                };
+                
+                selectDateDialogCancelBtn.onclick = closeDialog;
+                closeSelectDateDialogBtn.onclick = closeDialog;
+                dateSelectDialogOverlay.onclick = function(e) {
+                    if (e.target === dateSelectDialogOverlay) {
+                        closeDialog();
+                    }
+                };
+                
+                selectDateDialogOkBtn.onclick = async function() {
+                    const selectedDate = customDateInput.value;
+                    if (!selectedDate) {
+                        showNotification('请选择日期', 'error');
+                        return;
+                    }
+                    
+                    closeDialog();
+                    
+                    const response = await fetch(`http://localhost:3000/api/load-orders-by-date?date=${encodeURIComponent(selectedDate)}`, {
+                        headers: {
+                            'Authorization': `Bearer ${getToken()}`
+                        }
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        if (result.data.length === 0) {
+                            showNotification(`${selectedDate} 无订单数据`, 'info');
+                            return;
+                        }
+                        
+                        processedData = result.data;
+                        originalData = [...processedData];
+                        
+                        // 加载车辆信息
+                        const vehicleResponse = await fetch('http://localhost:3000/api/load-vehicles', {
+                            headers: {
+                                'Authorization': `Bearer ${getToken()}`
+                            }
+                        });
+                        const vehicleResult = await vehicleResponse.json();
+                        
+                        if (vehicleResult.success) {
+                            // 清空现有车辆信息
+                            vehicleCapacityMap.clear();
+                            
+                            // 添加加载的车辆信息
+                            vehicleResult.data.forEach(vehicle => {
+                                vehicleCapacityMap.set(vehicle.车牌号码, {
+                                    容量: vehicle.容量,
+                                    顺序: vehicle.顺序,
+                                    乘车时间: '',
+                                    随车负责人: vehicle.随车负责人,
+                                    随车负责人电话: vehicle.随车负责人电话,
+                                    通知内容: vehicle.通知内容,
+                                    已分配人数: 0
+                                });
+                            });
+                        }
+                        
+                        toggleBtn.disabled = false;
+                        exportBtn.disabled = false;
+                        analyzeBtn.disabled = false;
+                        
+                        dataSection.style.display = 'flex';
+                        ticketStatsSection.style.display = 'block';
+                        vehiclePickupStatsPanel.style.display = 'block';
+                        
+                        updatePlateLineMap();
+                        updateVehicleTotalAssigned();
+                        
+                        displayProcessedData();
+                        displayLineTicketStats();
+                        displayLineTimeLocationStats();
+                        displayVehiclePickupStatsPanel();
+                        
+                        toggleBtn.style.display = 'none';
+                        ticketStatsSection.classList.add('ticket-stats-down');
+                        
+                        showNotification(`成功从MySQL加载 ${selectedDate} 的 ${processedData.length} 条订单数据`, 'success');
+                    } else {
+                        showNotification(result.message, 'error');
+                    }
+                };
+            } catch (error) {
+                console.error('从MySQL加载失败:', error);
+                showNotification('从MySQL加载失败，请确保后端服务器正在运行', 'error');
             }
         }
         
@@ -442,45 +742,15 @@
         const vehiclePickupStatsPanel = document.getElementById('vehiclePickupStatsPanel');
         const selectAllPlateBtn = document.getElementById('selectAllPlateBtn');
         const selectAllUnassignedBtn = document.getElementById('selectAllUnassignedBtn');
-        const loginBtn = document.getElementById('loginBtn');
-        const usernameInput = document.getElementById('username');
-        const passwordInput = document.getElementById('password');
         
-        // 页面加载时初始化数据库
-        document.addEventListener('DOMContentLoaded', async function() {
-            // 检查登录状态
-            checkLoginStatus();
-            
-            // 登录按钮事件监听器
-            if (loginBtn) {
-                loginBtn.addEventListener('click', handleLogin);
-            }
-            
-            // 回车键登录
-            if (usernameInput && passwordInput) {
-                [usernameInput, passwordInput].forEach(input => {
-                    input.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            handleLogin();
-                        }
-                    });
-                });
-            }
-            
-            try {
-                await initDatabase();
-                await loadAllData();
-            } catch (error) {
-                console.error('初始化数据库失败:', error);
-            }
-            
-            // 导航栏功能
+        // 导航栏功能（移至主DOMContentLoaded事件中）
+        function initNavbar() {
             const navbarLinks = document.querySelectorAll('.navbar a');
             const sections = document.querySelectorAll('.section');
             
             // 默认显示第一个板块
-            sections[0].classList.add('active');
-            navbarLinks[0].classList.add('active');
+            if (sections.length > 0) sections[0].classList.add('active');
+            if (navbarLinks.length > 0) navbarLinks[0].classList.add('active');
             
             navbarLinks.forEach(link => {
                 link.addEventListener('click', function(e) {
@@ -515,7 +785,7 @@
                     }
                 });
             });
-        });
+        }
         
         // 新增：线路时间地点统计相关元素
         const lineTimeLocationPanel = document.getElementById('lineTimeLocationPanel');
@@ -546,11 +816,16 @@
         // 新增：数据库操作按钮
         const saveDataBtn = document.getElementById('saveDataBtn');
         const loadDataBtn = document.getElementById('loadDataBtn');
+        // 新增：MySQL数据库操作按钮
+        const saveToMySQLBtn = document.getElementById('saveToMySQLBtn');
+        const loadFromMySQLBtn = document.getElementById('loadFromMySQLBtn');
 
         // 在事件监听器部分添加
         refreshSearchBtn.addEventListener('click', refreshSearchData);
-        saveDataBtn.addEventListener('click', saveAllData);
-        loadDataBtn.addEventListener('click', loadAllData);
+        // saveDataBtn.addEventListener('click', saveAllData);  // 已禁用
+        // loadDataBtn.addEventListener('click', loadAllData);  // 已禁用
+        saveToMySQLBtn.addEventListener('click', saveToMySQL);
+        loadFromMySQLBtn.addEventListener('click', loadFromMySQL);
         
         // 新增：修改时间排序事件监听器
         if (modifyTimeSort) {
@@ -850,12 +1125,12 @@
                     analyzeBtn.disabled = false;
                     
                     showNotification(`成功加载文件: ${fileName}`, 'success');
-                    // 保存原始数据到数据库
-                    saveDataToDB(STORES.ORIGINAL_DATA, 'data', originalData);
-                    // 清除数据库中的手动修改记录
-                    saveDataToDB(STORES.MANUALLY_MODIFIED, 'data', {});
-                    saveDataToDB(STORES.MANUALLY_ADDED, 'data', []);
-                    saveDataToDB(STORES.MANUALLY_DELETED, 'data', []);
+                    // 保存原始数据到数据库（已禁用）
+                    // saveDataToDB(STORES.ORIGINAL_DATA, 'data', originalData);
+                    // 清除数据库中的手动修改记录（已禁用）
+                    // saveDataToDB(STORES.MANUALLY_MODIFIED, 'data', {});
+                    // saveDataToDB(STORES.MANUALLY_ADDED, 'data', []);
+                    // saveDataToDB(STORES.MANUALLY_DELETED, 'data', []);
                 } catch (error) {
                     console.error('Error reading file:', error);
                     showNotification('读取失败，请联网后重新进入系统', 'error');
@@ -1671,14 +1946,17 @@
             
             analyzeData();
             
-            // 保存线路信息和车辆容量信息到数据库
-            saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
-            saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
-            try {
-                saveDataToDB('vehicleCapacityMap', 'data', Object.fromEntries(vehicleCapacityMap));
-            } catch (error) {
-                console.error('保存vehicleCapacityMap失败:', error);
-            }
+            // 自动保存到MySQL
+            autoSaveToMySQL();
+            
+            // 保存线路信息和车辆容量信息到数据库（已禁用）
+            // saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
+            // saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
+            // try {
+            //     saveDataToDB('vehicleCapacityMap', 'data', Object.fromEntries(vehicleCapacityMap));
+            // } catch (error) {
+            //     console.error('保存vehicleCapacityMap失败:', error);
+            // }
         }
         
         // 分析数据并按照新的规则整合（增加线路限制检查和手动修改保留）
@@ -2454,7 +2732,7 @@
                     // 隐藏切换按钮，但保留其功能
                     toggleBtn.style.display = 'none';
                     
-                    showNotification('已成功分配各车辆信息（考虑线路人数限制）', 'success');
+                    showNotification('已成功分配', 'success');
                     
                     // 对processedData进行排序，确保随车联系人的订单排在前面
                     processedData.sort((a, b) => {
@@ -2500,8 +2778,11 @@
                         return 0;
                     });
                     
-                    // 自动保存数据到数据库
-                    await saveAllData();
+                    // 自动保存数据到数据库（已禁用）
+                    // await saveAllData();
+                    
+                    // 自动保存到MySQL
+                    autoSaveToMySQL();
                 } catch (error) {
                     console.error('Error analyzing data:', error);
                     showNotification('数据处理失败', 'error');
@@ -2525,7 +2806,7 @@
                 ticketStatsSection.classList.add('ticket-stats-down');
             } else {
                 dataSection.style.display = 'none';
-                toggleBtn.innerHTML = '<i class="fas fa-eye"></i> 显示整合后的数据';
+                toggleBtn.innerHTML = '<i class="fas fa-eye"></i>显示整合后的数据';
                 
                 vehiclePickupStatsPanel.style.display = 'none';
                 
@@ -5337,8 +5618,11 @@
             
             showNotification(`成功添加乘客: ${contact} (${orderId})`, 'success');
             
-            // 自动保存数据到数据库
-            saveAllData();
+            // 自动保存到MySQL
+            autoSaveToMySQL();
+            
+            // 自动保存数据到数据库（已禁用）
+            // saveAllData();
         }
         
         // 新增：显示删除确认对话框
@@ -5439,8 +5723,11 @@
             showNotification(`成功删除乘客: ${orderData.联系人} (${orderId})`, 'success');
             updateModifyButtonState();
             
-            // 自动保存数据到数据库
-            saveAllData();
+            // 自动保存到MySQL
+            autoSaveToMySQL();
+            
+            // 自动保存数据到数据库（已禁用）
+            // saveAllData();
         }
         
         // 显示警告对话框
@@ -5931,8 +6218,11 @@
             selectedRows.clear();
             updateModifyButtonState();
             
-            // 自动保存数据到数据库
-            saveAllData();
+            // 自动保存到MySQL
+            autoSaveToMySQL();
+            
+            // 自动保存数据到数据库（已禁用）
+            // saveAllData();
         }
         
         // 显示编辑车辆模态框
@@ -6235,8 +6525,11 @@
             
             showNotification(`车辆信息已更新：${originalPlate} → ${newPlate}`, 'success');
             
-            // 自动保存数据到数据库
-            saveAllData();
+            // 自动保存到MySQL
+            autoSaveToMySQL();
+            
+            // 自动保存数据到数据库（已禁用）
+            // saveAllData();
         }
         
         // 更新plateLineMap
@@ -6265,29 +6558,29 @@
         
 
 
-        // 页面加载完成后初始化
+        // 页面加载完成后初始化（数据库部分已禁用）
         document.addEventListener('DOMContentLoaded', function() {
-            // 初始化数据库
-            initDatabase().then(() => {
-                showNotification('系统已就绪，请上传Excel文件或点击"刷新"按钮生成示例数据', 'info');
-                
-                // 尝试加载已保存的数据
-                loadAllData().then(() => {
-                    if (processedData.length > 0) {
-                        // 数据加载成功，更新UI
-                        analyzeBtn.disabled = false;
-                        toggleBtn.disabled = false;
-                        exportBtn.disabled = false;
-                        ticketStatsSection.style.display = 'block';
-                        displayLineTicketStats();
-                        displayLineTimeLocationStats();
-                    }
-                });
-            }).catch(error => {
-                console.error('数据库初始化失败:', error);
-                showNotification('数据库初始化失败', 'error');
-                showNotification('系统已就绪，请上传Excel文件或点击"刷新"按钮生成示例数据', 'info');
-            });
+            // 初始化数据库（已禁用）
+            // initDatabase().then(() => {
+            //     showNotification('系统已就绪，请上传Excel文件或点击"刷新"按钮生成示例数据', 'info');
+            //     
+            //     // 尝试加载已保存的数据
+            //     loadAllData().then(() => {
+            //         if (processedData.length > 0) {
+            //             // 数据加载成功，更新UI
+            //             analyzeBtn.disabled = false;
+            //             toggleBtn.disabled = false;
+            //             exportBtn.disabled = false;
+            //             ticketStatsSection.style.display = 'block';
+            //             displayLineTicketStats();
+            //             displayLineTimeLocationStats();
+            //         }
+            //     });
+            // }).catch(error => {
+            //     console.error('数据库初始化失败:', error);
+            //     showNotification('数据库初始化失败', 'error');
+            //     showNotification('系统已就绪，请上传Excel文件或点击"刷新"按钮生成示例数据', 'info');
+            // });
             
             analyzeBtn.disabled = true;
             
@@ -6296,7 +6589,138 @@
             document.getElementById('cancelEditVehicleBtn').addEventListener('click', closeEditVehicleModal);
             document.getElementById('saveEditVehicleBtn').addEventListener('click', saveEditVehicleInfo);
             
-            // 数据库操作按钮事件
-            document.getElementById('saveDataBtn').addEventListener('click', saveAllData);
-            document.getElementById('loadDataBtn').addEventListener('click', loadAllData);
+            // 数据库操作按钮事件（已禁用）
+            // document.getElementById('saveDataBtn').addEventListener('click', saveAllData);
+            // document.getElementById('loadDataBtn').addEventListener('click', loadAllData);
+            
+            // 导入车辆表格事件
+            document.getElementById('importVehicleFile').addEventListener('change', handleImportVehicleFile);
         });
+        
+        // 导入车辆信息表格
+        function handleImportVehicleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const sheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+                    
+                    if (jsonData.length < 2) {
+                        showNotification('表格数据为空或格式不正确', 'error');
+                        return;
+                    }
+                    
+                    // 找到表头对应的列索引
+                    const headers = jsonData[0];
+                    const getColumnIndex = (keywords) => {
+                        for (let i = 0; i < headers.length; i++) {
+                            const header = String(headers[i] || '').trim();
+                            for (const keyword of keywords) {
+                                if (header.includes(keyword)) {
+                                    return i;
+                                }
+                            }
+                        }
+                        return -1;
+                    };
+                    
+                    const lineIndex = getColumnIndex(['线路', '线路名称', 'line']);
+                    const orderIndex = getColumnIndex(['顺序', '序号', 'order']);
+                    const peopleIndex = getColumnIndex(['人数', '人员', 'people']);
+                    const timeIndex = getColumnIndex(['乘车时间', '时间', 'time']);
+                    const pickupIndex = getColumnIndex(['上车地点', '上车', 'pickup']);
+                    const dropoffIndex = getColumnIndex(['下车地点', '下车', 'dropoff']);
+                    const seatIndex = getColumnIndex(['座位数', '座位', 'seat']);
+                    const plateIndex = getColumnIndex(['车牌号码', '车牌号', '车牌', 'plate']);
+                    const escortNameIndex = getColumnIndex(['随车负责人', '负责人', 'escort']);
+                    const escortPhoneIndex = getColumnIndex(['随车负责人电话', '负责人电话', 'escort phone']);
+                    const noticeIndex = getColumnIndex(['通知内容', '通知', 'notice']);
+                    
+                    if (lineIndex === -1) {
+                        showNotification('未找到"线路"列，请检查表格格式', 'error');
+                        return;
+                    }
+                    
+                    let importedCount = 0;
+                    
+                    // 遍历数据行（跳过表头）
+                    for (let i = 1; i < jsonData.length; i++) {
+                        const row = jsonData[i];
+                        const lineName = String(row[lineIndex] || '').trim();
+                        
+                        if (!lineName) continue;
+                        
+                        // 找到对应的线路数据
+                        const lineIndexInData = lineInfo.findIndex(info => info.线路 === lineName);
+                        if (lineIndexInData === -1) continue;
+                        
+                        // 提取数据
+                        const order = row[orderIndex] !== undefined ? String(row[orderIndex]).trim() : '';
+                        const people = row[peopleIndex] !== undefined ? String(row[peopleIndex]).trim() : '';
+                        const time = row[timeIndex] !== undefined ? String(row[timeIndex]).trim() : '';
+                        const pickup = row[pickupIndex] !== undefined ? String(row[pickupIndex]).trim() : '';
+                        const dropoff = row[dropoffIndex] !== undefined ? String(row[dropoffIndex]).trim() : '';
+                        const seat = row[seatIndex] !== undefined ? String(row[seatIndex]).trim() : '';
+                        const plate = row[plateIndex] !== undefined ? String(row[plateIndex]).trim() : '';
+                        const escortName = row[escortNameIndex] !== undefined ? String(row[escortNameIndex]).trim() : '';
+                        const escortPhone = row[escortPhoneIndex] !== undefined ? String(row[escortPhoneIndex]).trim() : '';
+                        const notice = row[noticeIndex] !== undefined ? String(row[noticeIndex]).trim() : '';
+                        
+                        // 查找或创建车辆信息
+                        let vehicleIndex = -1;
+                        for (let v = 0; v < lineInfo[lineIndexInData].车辆.length; v++) {
+                            if (order && lineInfo[lineIndexInData].车辆[v].顺序 === order) {
+                                vehicleIndex = v;
+                                break;
+                            }
+                        }
+                        
+                        if (vehicleIndex === -1) {
+                            // 如果没有找到，添加新车辆
+                            lineInfo[lineIndexInData].车辆.push({
+                                顺序: order,
+                                人数: people,
+                                乘车时间: time,
+                                上车地点: pickup,
+                                下车地点: dropoff,
+                                座位数: seat,
+                                车牌号码: plate,
+                                随车负责人: escortName,
+                                随车负责人电话: escortPhone,
+                                通知内容: notice
+                            });
+                        } else {
+                            // 更新现有车辆
+                            if (order) lineInfo[lineIndexInData].车辆[vehicleIndex].顺序 = order;
+                            if (people) lineInfo[lineIndexInData].车辆[vehicleIndex].人数 = people;
+                            if (time) lineInfo[lineIndexInData].车辆[vehicleIndex].乘车时间 = time;
+                            if (pickup) lineInfo[lineIndexInData].车辆[vehicleIndex].上车地点 = pickup;
+                            if (dropoff) lineInfo[lineIndexInData].车辆[vehicleIndex].下车地点 = dropoff;
+                            if (seat) lineInfo[lineIndexInData].车辆[vehicleIndex].座位数 = seat;
+                            if (plate) lineInfo[lineIndexInData].车辆[vehicleIndex].车牌号码 = plate;
+                            if (escortName) lineInfo[lineIndexInData].车辆[vehicleIndex].随车负责人 = escortName;
+                            if (escortPhone) lineInfo[lineIndexInData].车辆[vehicleIndex].随车负责人电话 = escortPhone;
+                            if (notice) lineInfo[lineIndexInData].车辆[vehicleIndex].通知内容 = notice;
+                        }
+                        
+                        importedCount++;
+                    }
+                    
+                    // 更新表格显示
+                    renderLineInputs();
+                    
+                    showNotification(`成功导入 ${importedCount} 条车辆信息`, 'success');
+                } catch (error) {
+                    console.error('导入车辆表格失败:', error);
+                    showNotification('导入车辆表格失败，请检查文件格式', 'error');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+            event.target.value = '';
+        }

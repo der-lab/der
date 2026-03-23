@@ -68,6 +68,27 @@
             transform: translateY(-2px);
         }
         
+        .server-status {
+            position: absolute;
+            top: 25px;
+            left: 30px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .server-status.online {
+            color: #2ecc71;
+        }
+        
+        .server-status.offline {
+            color: #e74c3c;
+        }
+        
         .main-content {
             display: flex;
             flex-direction: column;
@@ -2075,86 +2096,4 @@
             margin-top: 20px;
             padding-top: 20px;
             border-top: 1px solid #eee;
-        }
-        
-        /* 登录界面样式 */
-        .login-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        }
-        
-        .login-form {
-            background-color: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            padding: 40px;
-            width: 100%;
-            max-width: 400px;
-            text-align: center;
-        }
-        
-        .login-form h2 {
-            color: #2c3e50;
-            margin-bottom: 30px;
-            font-size: 1.8rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-        }
-        
-        .login-form .form-group {
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        
-        .login-form label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: #2c3e50;
-        }
-        
-        .login-form .input-field {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 1rem;
-            transition: border-color 0.3s;
-        }
-        
-        .login-form .input-field:focus {
-            border-color: #3498db;
-            outline: none;
-            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-        }
-        
-        .login-btn {
-            width: 100%;
-            background: linear-gradient(90deg, #4a6491, #2c3e50);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-top: 10px;
-        }
-        
-        .login-btn:hover {
-            background: linear-gradient(90deg, #2c3e50, #4a6491);
-            transform: translateY(-2px);
-        }
-        
-        .login-error {
-            margin-top: 15px;
-            color: #e74c3c;
-            font-weight: 600;
-            font-size: 0.9rem;
         }
