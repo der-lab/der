@@ -1947,28 +1947,44 @@
             color: #aaa;
         }
 
+        .modal-search-btn {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 16px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+
+        .modal-search-btn:hover {
+            background-color: #2980b9;
+        }
+
         .location-scroll {
-            overflow-x: auto;
-            white-space: nowrap;
-            padding-bottom: 5px;
+            overflow-y: auto;
+            max-height: 120px;
+            padding-right: 5px;
         }
         
         .location-scroll .pickup-stat-item {
-            display: inline-flex;
-            margin-right: 10px;
-            border-bottom: none;
-            border-right: 1px dashed #f0f0f0;
-            padding-right: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+            border-bottom: 1px dashed #f0f0f0;
         }
         
         .location-scroll .pickup-stat-item:last-child {
-            border-right: none;
-            margin-right: 0;
-            padding-right: 0;
+            border-bottom: none;
         }
         
         .location-scroll::-webkit-scrollbar {
-            height: 6px;
+            width: 6px;
         }
         
         .location-scroll::-webkit-scrollbar-track {
@@ -2955,6 +2971,9 @@
                         <label>车牌号:</label>
                         <input type="text" id="modalSearchPlate" placeholder="请输入车牌号...">
                     </div>
+                    <button class="modal-search-btn" id="sortByOrderBtn" title="按顺序排序">
+                        <i class="fas fa-sort-numeric-asc"></i> 排序
+                    </button>
                 </div>
                 
                 <div class="table-container">
@@ -3947,6 +3966,10 @@
         // 弹窗搜索输入框事件
         modalSearchLine.addEventListener('input', filterModalRows);
         modalSearchPlate.addEventListener('input', filterModalRows);
+        
+        // 排序按钮事件
+        const sortByOrderBtn = document.getElementById('sortByOrderBtn');
+        sortByOrderBtn.addEventListener('click', sortByOrder);
         
         // 线路信息填写弹窗事件监听器
         closeModalBtn.addEventListener('click', closeModal);
@@ -6925,7 +6948,7 @@
                                 seatStatus = `<span class="seat-status seat-status-available">${totalAssigned}/${capacity}人(空${emptySeats}座)</span> ${timeDisplay}`;
                             }
                         } else {
-                            seatStatus = `<span class="seat-status seat-status-unlimited">${totalAssigned}人(未限制)</span> ${timeDisplay}`;
+                            seatStatus = `<span class="seat-status seat-status-unlimited">${totalAssigned}人(未设置座位数)</span> ${timeDisplay}`;
                         }
                     } else {
                         seatStatus = `<span class="seat-status seat-status-unassigned">未分配车辆</span>`;
@@ -7314,7 +7337,7 @@
                             capacityInfo = `<div style="margin-top:5px; font-size:0.85rem;"><span class="available-status">${totalAssigned}/${capacity}人(空${emptySeats}座)</span></div>`;
                         }
                     } else {
-                        capacityInfo = `<div style="margin-top:5px; font-size:0.85rem;"><span class="warning-status">${totalAssigned}人(未限制)</span></div>`;
+                        capacityInfo = `<div style="margin-top:5px; font-size:0.85rem;"><span class="warning-status">${totalAssigned}人(未设置座位数)</span></div>`;
                     }
                 } else if (isUnassigned) {
                     capacityInfo = `<div style="margin-top:5px; font-size:0.85rem;"><span class="unassigned-label">未分配车辆</span></div>`;
@@ -7347,8 +7370,9 @@
                     <div class="line-group-title" data-plate="${plate}" data-line="${vehicles.map(v => v.line).join(',')}">
                         <i class="fas fa-car"></i> ${plateTitle} ${capacityInfo}${timeDisplay}
                         ${plate && plate !== '未分配车辆' ? `
-                            <button class="edit-vehicle-manager-btn" data-plate="${plate}" style="margin-left: 10px; padding: 4px 12px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-user"></i> 编辑随车负责人</button>
-                            <button class="edit-vehicle-btn" data-plate="${plate}" style="margin-left: 10px; padding: 4px 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-edit"></i> 编辑通知内容</button>
+                            <button class="edit-vehicle-manager-btn" data-plate="${plate}" style="margin-left: 10px; padding: 4px 12px; background-color: #27ae60; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-user"></i> 随车负责人</button>
+                            <button class="edit-notice-btn" data-plate="${plate}" style="margin-left: 10px; padding: 4px 12px; background-color: #9b59b6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-file-text"></i> 通知内容</button>
+                            <button class="edit-vehicle-btn" data-plate="${plate}" style="margin-left: 10px; padding: 4px 12px; background-color: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem;"><i class="fas fa-edit"></i> 车辆信息</button>
                         ` : ''}
                     </div>
                     <div class="vehicle-pickup-stats-grid">
@@ -7434,6 +7458,15 @@
                 btn.addEventListener('click', function() {
                     const plate = this.getAttribute('data-plate');
                     showEditVehicleManagerModal(plate);
+                });
+            });
+            
+            // 设置编辑通知内容按钮事件
+            const editNoticeBtns = document.querySelectorAll('.edit-notice-btn');
+            editNoticeBtns.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const plate = this.getAttribute('data-plate');
+                    showEditNoticeModal(plate);
                 });
             });
         }
@@ -8612,9 +8645,9 @@
                         <div><strong>联系人:</strong> ${order.联系人} (${order.联系电话})</div>
                         <div style="margin-top: 4px; color: #666;">
                             <span style="color: #e74c3c;">当前:</span> 
-                            负责人:${order.随车负责人 || '空'} | 
-                            电话:${order.随车负责人电话 || '空'} | 
-                            通知:${order.通知内容 || '空'}
+                            随车负责人:${order.随车负责人 || '空'} | 
+                            随车负责人电话:${order.随车负责人电话 || '空'} | 
+                            通知内容:${order.通知内容 || '空'}
                         </div>
                     </div>
                 `).join('');
@@ -8626,9 +8659,9 @@
                         <div style="font-weight: bold; color: #1976d2; margin-bottom: 5px;">
                             <i class="fas fa-check-circle"></i> 参考信息
                         </div>
-                        <div><strong>负责人:</strong> ${item.参考信息.随车负责人 || '空'}</div>
-                        <div><strong>电话:</strong> ${item.参考信息.随车负责人电话 || '空'}</div>
-                        <div><strong>通知:</strong> ${item.参考信息.通知内容 || '空'}</div>
+                        <div><strong>随车负责人:</strong> ${item.参考信息.随车负责人 || '空'}</div>
+                        <div><strong>随车负责人电话:</strong> ${item.参考信息.随车负责人电话 || '空'}</div>
+                        <div><strong>通知内容:</strong> ${item.参考信息.通知内容 || '空'}</div>
                     </div>
                     <div style="margin-top: 10px;">
                         <div style="font-weight: bold; color: #e74c3c; margin-bottom: 5px;">
@@ -9402,6 +9435,35 @@
             } else if (existingNoResults) {
                 existingNoResults.remove();
             }
+        }
+        
+        // 按顺序列排序
+        function sortByOrder() {
+            const tbody = document.getElementById('lineInputsBody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            rows.sort((a, b) => {
+                const orderInputA = a.querySelector('.order-input');
+                const orderInputB = b.querySelector('.order-input');
+                
+                const orderA = orderInputA ? parseInt(orderInputA.value) || null : null;
+                const orderB = orderInputB ? parseInt(orderInputB.value) || null : null;
+                
+                // 未填写顺序的放后面
+                if (orderA === null && orderB !== null) return 1;
+                if (orderB === null && orderA !== null) return -1;
+                if (orderA === null && orderB === null) return 0;
+                
+                return orderA - orderB;
+            });
+            
+            rows.forEach(row => tbody.appendChild(row));
+            
+            // 保存排序后的顺序到数据库
+            saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
+            saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
+            
+            showNotification('排序已保存', 'success');
         }
         
         // 更新修改按钮状态
@@ -10907,7 +10969,7 @@
                             formHTML += `
                                 <div class="form-group">
                                     <label>上车地点：${pickup}</label>
-                                    <textarea id="editNotice_${line}_${pickup}" class="input-field pickup-notice-edit" data-line="${line}" data-pickup="${pickup}" rows="3" placeholder="请输入${pickup}的通知内容">${notice || ''}</textarea>
+                                    <div class="readonly-field" style="min-height: 60px; white-space: pre-wrap;">${notice || '未设置'}</div>
                                 </div>
                             `;
                         });
@@ -10938,6 +11000,151 @@
         // 关闭编辑车辆模态框
         function closeEditVehicleModal() {
             document.getElementById('editVehicleModalOverlay').style.display = 'none';
+        }
+        
+        // 显示编辑通知内容模态框
+        function showEditNoticeModal(plate) {
+            if (!plate || plate === '未分配车辆') {
+                showNotification('无法编辑未分配车辆', 'error');
+                return;
+            }
+            
+            // 获取该车辆包含的所有线路
+            const lines = new Set();
+            processedData.forEach(item => {
+                if (item.车牌号码 === plate && item.线路) {
+                    lines.add(item.线路);
+                }
+            });
+            const lineArray = Array.from(lines);
+            
+            let formHTML = `
+                <div class="form-group">
+                    <label>车牌号</label>
+                    <div class="readonly-field">${plate}</div>
+                </div>
+            `;
+            
+            // 按线路分块显示通知内容，每个线路下包含各上车地点的通知内容框
+            if (lineArray.length > 0) {
+                lineArray.forEach(line => {
+                    // 获取该线路的所有上车地点
+                    const lineData = processedData.filter(item => item.车牌号码 === plate && item.线路 === line);
+                    const pickups = [...new Set(lineData.map(item => item.上车地点).filter(pickup => pickup && pickup.trim()))].sort();
+                    
+                    formHTML += `
+                        <div class="form-group-line">
+                            <label class="line-label">${line}线路</label>
+                        </div>
+                    `;
+                    
+                    if (pickups.length > 0) {
+                        pickups.forEach(pickup => {
+                            // 从lineInfo中获取手动设置的通知内容，不从processedData中读取（避免订单修改影响编辑框）
+                            let notice = '';
+                            if (lineInfo[line]) {
+                                const vehicle = lineInfo[line].find(v => v.车牌号码 === plate);
+                                if (vehicle && vehicle.pickupNotices && vehicle.pickupNotices[pickup]) {
+                                    notice = vehicle.pickupNotices[pickup];
+                                }
+                            }
+                            
+                            formHTML += `
+                                <div class="form-group">
+                                    <label>上车地点：${pickup}</label>
+                                    <textarea id="notice_${line}_${pickup}" class="input-field pickup-notice-edit" data-line="${line}" data-pickup="${pickup}" rows="3" placeholder="请输入${pickup}的通知内容">${notice || ''}</textarea>
+                                </div>
+                            `;
+                        });
+                    } else {
+                        formHTML += `
+                            <div class="form-group">
+                                <label>该线路没有上车地点数据</label>
+                            </div>
+                        `;
+                    }
+                });
+            } else {
+                formHTML += `
+                    <div class="form-group">
+                        <label>该车辆没有分配到任何线路</label>
+                    </div>
+                `;
+            }
+            
+            document.getElementById('editNoticeForm').innerHTML = formHTML;
+            document.getElementById('editNoticeModalOverlay').style.display = 'flex';
+            
+            // 保存原车牌号和线路信息，用于后续更新
+            document.getElementById('saveEditNoticeBtn').setAttribute('data-plate', plate);
+            document.getElementById('saveEditNoticeBtn').setAttribute('data-lines', lineArray.join(','));
+        }
+        
+        // 关闭编辑通知内容模态框
+        function closeEditNoticeModal() {
+            document.getElementById('editNoticeModalOverlay').style.display = 'none';
+        }
+        
+        // 保存通知内容
+        function saveEditNoticeInfo() {
+            const plate = document.getElementById('saveEditNoticeBtn').getAttribute('data-plate');
+            const lines = document.getElementById('saveEditNoticeBtn').getAttribute('data-lines').split(',');
+            
+            // 获取编辑通知内容弹窗中的所有通知内容文本框（使用以notice_开头的ID选择器）
+            const noticeTextareas = document.querySelectorAll('[id^="notice_"]');
+            
+            noticeTextareas.forEach(textarea => {
+                const line = textarea.getAttribute('data-line');
+                const pickup = textarea.getAttribute('data-pickup');
+                const notice = textarea.value.trim();
+                
+                // 更新lineInfo中的通知内容
+                if (!lineInfo[line]) {
+                    lineInfo[line] = [];
+                }
+                let vehicle = lineInfo[line].find(v => v.车牌号码 === plate);
+                if (!vehicle) {
+                    vehicle = { 车牌号码: plate, pickupNotices: {} };
+                    lineInfo[line].push(vehicle);
+                }
+                if (!vehicle.pickupNotices) {
+                    vehicle.pickupNotices = {};
+                }
+                vehicle.pickupNotices[pickup] = notice;
+                
+                // 更新lastLineInfo中的通知内容
+                if (!lastLineInfo[line]) {
+                    lastLineInfo[line] = [];
+                }
+                let lastVehicle = lastLineInfo[line].find(v => v.车牌号码 === plate);
+                if (!lastVehicle) {
+                    lastVehicle = { 车牌号码: plate, pickupNotices: {} };
+                    lastLineInfo[line].push(lastVehicle);
+                }
+                if (!lastVehicle.pickupNotices) {
+                    lastVehicle.pickupNotices = {};
+                }
+                lastVehicle.pickupNotices[pickup] = notice;
+                
+                // 更新processedData中对应订单的通知内容
+                processedData.forEach(item => {
+                    if (item.车牌号码 === plate && item.线路 === line && item.上车地点 === pickup) {
+                        item.通知内容 = notice;
+                    }
+                });
+            });
+            
+            // 保存到数据库
+            saveDataToDB(STORES.LINE_INFO, 'data', lineInfo);
+            saveDataToDB(STORES.LAST_LINE_INFO, 'data', lastLineInfo);
+            saveDataToDB(STORES.PROCESSED_DATA, 'data', processedData);
+            
+            closeEditNoticeModal();
+            showNotification('通知内容保存成功', 'success');
+            
+            // 更新显示
+            displayProcessedData();
+            displayVehiclePickupStatsPanel();
         }
         
         // 显示编辑随车负责人模态框
@@ -11362,8 +11569,8 @@
             // 更新所有使用该车辆的订单信息
             processedData.forEach(item => {
                 if (item.车牌号码 === newPlate) {
-                    if (manager) item.随车负责人 = manager;
-                    if (managerPhone) item.随车负责人电话 = managerPhone;
+                    item.随车负责人 = manager;
+                    item.随车负责人电话 = managerPhone;
                 }
             });
             
@@ -11872,6 +12079,11 @@
             document.getElementById('cancelEditVehicleBtn').addEventListener('click', closeEditVehicleModal);
             document.getElementById('saveEditVehicleBtn').addEventListener('click', saveEditVehicleInfo);
             
+            // 编辑通知内容模态框事件
+            document.getElementById('closeEditNoticeModal').addEventListener('click', closeEditNoticeModal);
+            document.getElementById('cancelEditNoticeBtn').addEventListener('click', closeEditNoticeModal);
+            document.getElementById('saveEditNoticeBtn').addEventListener('click', saveEditNoticeInfo);
+            
             // 编辑随车负责人模态框事件
             document.getElementById('closeEditVehicleManagerModal').addEventListener('click', closeEditVehicleManagerModal);
             document.getElementById('cancelEditVehicleManagerBtn').addEventListener('click', closeEditVehicleManagerModal);
@@ -11903,6 +12115,25 @@
             <div class="modal-footer">
                 <button class="modal-btn cancel-btn" id="cancelPickupNoticeBtn">取消</button>
                 <button class="modal-btn confirm-btn" id="savePickupNoticeBtn">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 编辑通知内容对话框 -->
+    <div class="modal-overlay" id="editNoticeModalOverlay">
+        <div class="modify-modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-file-text"></i> 编辑通知内容</h3>
+                <button class="close-btn" id="closeEditNoticeModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modify-form" id="editNoticeForm">
+                    <!-- 表单内容将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn cancel-btn" id="cancelEditNoticeBtn">取消</button>
+                <button class="modal-btn confirm-btn" id="saveEditNoticeBtn">保存</button>
             </div>
         </div>
     </div>
